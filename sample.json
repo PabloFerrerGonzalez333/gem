@@ -1,0 +1,32 @@
+{
+  "records": [
+    {
+      "b_eticket": 1.0,
+      "c_paymethod_echeck": 0.0,
+      "c_internet_no": 0.0,
+      "c_paymethod_ccard": 1.0,
+      "f_monthly": 0.8014722797331493,
+      "c_internet_fiber": 1.0,
+      "b_onlinesec": 1.0,
+      "b_onlineback": 1.0,
+      "f_total": 2.060467250243966,
+      "i_tenure": 0.9347826086956522,
+      "c_contract_1y": 0.0,
+      "c_contract_2y": 1.0,
+      "b_phone": 1.0,
+      "b_senior": 0.0,
+      "c_contract_monthly": 0.0,
+      "b_partner": 1.0,
+      "b_streamingtv": 1.0,
+      "b_mphone": 1.0,
+      "b_techsup": 1.0,
+      "c_paymethod_btransfer": 0.0,
+      "b_gender": 1.0,
+      "c_paymethod_mcheck": 0.0,
+      "c_internet_dsl": 0.0,
+      "b_devprot": 1.0,
+      "b_dependents": 1.0,
+      "b_streamingmovies": 1.0
+    }
+  ]
+}
