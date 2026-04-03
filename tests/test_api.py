@@ -2,6 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
+import numpy as np
+
 from src.serving.app import app, ModelArtifacts
 
 client = TestClient(app)
@@ -12,8 +14,6 @@ def mock_artifacts():
     """Mock the model artifacts to avoid requiring a trained model for basic API tests."""
     mock_model = MagicMock()
     # Let's say predict_proba returns array of probabilities for 2 classes
-    import numpy as np
-
     mock_model.predict_proba.return_value = np.array([[0.1, 0.9], [0.8, 0.2]])
 
     return ModelArtifacts(model=mock_model, feature_cols=["feature1", "feature2"])
