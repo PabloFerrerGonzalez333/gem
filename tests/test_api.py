@@ -53,4 +53,4 @@ def test_predict(mock_load, mock_artifacts):
     assert "predictions" in data
     assert "probabilities" in data
     assert len(data["predictions"]) == 2
-    assert data["predictions"] == [1, 0]  # Based on the mocked probabilities: 0.9 -> 1, 0.2 -> 0
+    assert data["predictions"] == [1, 0]  # Predictions: 0.9 -> 1, 0.2 -> 0
