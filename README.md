@@ -105,7 +105,7 @@ poetry install
    ```bash
    poetry run python src/models/train.py --data data/processed --models models
    ```
-   > *Note: This script may take up to an hour to execute. It will save the trained model and testing metrics.*
+   > *Note: This script may take up to an hour to execute. It will save the trained model and testing metrics. *
 
 6. **Serve the API**
    ```bash
