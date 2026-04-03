@@ -1,15 +1,15 @@
 """
-Construcción y preparación de *features* para modelado (Telco Churn).
+Build and preparation of *features* for modeling (Telco Churn).
 
-Este módulo realiza:
-  1) Imputación manual de valores.
-  2) Codificación *one-hot* de categóricas.
-  3) *Split* train/test + escalado robusto de numéricas.
-  4) (Opcional) Balanceo con SMOTE y selección de características
-     estadística + RFECV.
-  5) Persistencia en Excel de los conjuntos resultantes.
+This module performs:
+  1) Manual imputation of values.
+  2) *One-hot* encoding of categoricals.
+  3) Train/test *split* + robust scaling of numerics.
+  4) (Optional) Balancing with SMOTE and statistical feature selection
+     + RFECV.
+  5) Persistence of resulting datasets to Excel.
 
-Uso CLI
+CLI Usage
 -------
 .. code-block:: bash
 
@@ -18,9 +18,9 @@ Uso CLI
        --out data/processed \
        --kind cc
 
-Donde ``kind`` es una cadena de dos caracteres:
-  - 1º char: ``'c'`` aplica SMOTE (class balancing), ``'s'`` no.
-  - 2º char: ``'c'`` aplica *feature engineering* (selección), ``'s'`` no.
+Where ``kind`` is a two-character string:
+  - 1st char: ``'c'`` applies SMOTE (class balancing), ``'s'`` does not.
+  - 2nd char: ``'c'`` applies *feature engineering* (selection), ``'s'`` does not.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ TARGET = "b_churn"
 
 
 # ==========================
-#       Utilidades
+#       Utilities
 # ==========================
 
 
@@ -50,15 +50,15 @@ def get_cols_types(
     df: pd.DataFrame,
 ) -> Tuple[List[str], List[str], List[str], List[str]]:
     """
-    Determina columnas por tipo semántico a partir de prefijos.
+    Determines columns by semantic type based on prefixes.
 
-    :param df: DataFrame de entrada (tras renombrado de columnas).
+    :param df: Input DataFrame (after column renaming).
     :type df: pandas.DataFrame
     :return:
-        - **cat_cols**: Columnas categóricas (prefijo ``c_``).
-        - **num_cols**: Columnas numéricas (prefijos ``f_`` o ``i_``).
-        - **bin_cols**: Columnas binarias (prefijo ``b_``).
-        - **str_cols**: Columnas string/identificadores (prefijo ``s_``).
+        - **cat_cols**: Categorical columns (prefix ``c_``).
+        - **num_cols**: Numerical columns (prefixes ``f_`` or ``i_``).
+        - **bin_cols**: Binary columns (prefix ``b_``).
+        - **str_cols**: String/identifier columns (prefix ``s_``).
     :rtype: tuple[list[str], list[str], list[str], list[str]]
     """
     cat_cols = [c for c in df.columns if c.startswith("c_") and c != TARGET]
@@ -74,14 +74,14 @@ def get_cols_types(
 
 def imputacion_manual(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Imputa valores faltantes de forma manual en columnas numéricas conocidas.
+    Manually imputes missing values in known numerical columns.
 
-    Actualmente:
-      - ``f_total``: faltantes → ``0``.
+    Currently:
+      - ``f_total``: missing → ``0``.
 
-    :param df: DataFrame original.
+    :param df: Original DataFrame.
     :type df: pandas.DataFrame
-    :return: Copia imputada.
+    :return: Imputed copy.
     :rtype: pandas.DataFrame
     """
     out = df.copy()
@@ -92,13 +92,13 @@ def imputacion_manual(df: pd.DataFrame) -> pd.DataFrame:
 
 def codificacion_categoricas(df: pd.DataFrame, cat_cols: Sequence[str]) -> pd.DataFrame:
     """
-    Aplica *one-hot encoding* a columnas categóricas.
+    Applies *one-hot encoding* to categorical columns.
 
-    :param df: DataFrame de entrada.
+    :param df: Input DataFrame.
     :type df: pandas.DataFrame
-    :param cat_cols: Columnas categóricas a codificar.
+    :param cat_cols: Categorical columns to encode.
     :type cat_cols: Sequence[str]
-    :return: DataFrame con variables dummies (sin *drop_first*).
+    :return: DataFrame with dummy variables (without *drop_first*).
     :rtype: pandas.DataFrame
     """
     if not cat_cols:
@@ -110,13 +110,13 @@ def escalado_numericas(
     df: pd.DataFrame, num_cols: Sequence[str]
 ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
     """
-    Realiza *split* train/test estratificado y escala numéricas con RobustScaler.
+    Performs stratified train/test *split* and scales numerics with RobustScaler.
 
-    :param df: DataFrame tras imputación y *one-hot*.
+    :param df: DataFrame after imputation and *one-hot*.
     :type df: pandas.DataFrame
-    :param num_cols: Columnas numéricas a escalar.
+    :param num_cols: Numerical columns to scale.
     :type num_cols: Sequence[str]
-    :return: ``(X_train, y_train, X_test, y_test)`` con escalado aplicado.
+    :return: ``(X_train, y_train, X_test, y_test)`` with applied scaling.
     :rtype: tuple[pandas.DataFrame, pandas.Series, pandas.DataFrame, pandas.Series]
     """
     X = df.drop(columns=[TARGET])
@@ -135,7 +135,7 @@ def escalado_numericas(
         )
         X_test.loc[:, list(num_cols)] = scaler.transform(X_test.loc[:, list(num_cols)])
 
-    # y como Series 1D (facilita uso en sklearn/imbalanced-learn)
+    # y as 1D Series (facilitates use in sklearn/imbalanced-learn)
     return X_train, y_train, X_test, y_test
 
 
@@ -143,18 +143,18 @@ def apply_smote(
     X_train: pd.DataFrame, y_train: pd.Series
 ) -> Tuple[pd.DataFrame, pd.Series]:
     """
-    Aplica SMOTE para balancear la clase minoritaria.
+    Applies SMOTE to balance the minority class.
 
-    :param X_train: Matriz de entrenamiento.
+    :param X_train: Training matrix.
     :type X_train: pandas.DataFrame
-    :param y_train: Etiquetas (Series 1D).
+    :param y_train: Labels (1D Series).
     :type y_train: pandas.Series
-    :return: Conjunto balanceado ``(X_train_bal, y_train_bal)``.
+    :return: Balanced set ``(X_train_bal, y_train_bal)``.
     :rtype: tuple[pandas.DataFrame, pandas.Series]
     """
     smote = SMOTE(random_state=RANDOM_STATE, k_neighbors=5)
     X_bal, y_bal = smote.fit_resample(X_train, y_train)
-    # Garantizar que y retorna como Series con nombre
+    # Ensure y returns as Series with name
     if not isinstance(y_bal, pd.Series):
         y_bal = pd.Series(y_bal, name=y_train.name or TARGET)
     return X_bal, y_bal
@@ -169,25 +169,25 @@ def final_gen(
     out_dir: str | Path,
 ) -> None:
     """
-    Aplica pasos opcionales (SMOTE y selección de *features*) y persiste a Excel.
+    Applies optional steps (SMOTE and *feature* selection) and persists to Excel.
 
-    :param X_train: Entrenamiento.
+    :param X_train: Training set.
     :type X_train: pandas.DataFrame
-    :param y_train: Etiquetas de entrenamiento.
+    :param y_train: Training labels.
     :type y_train: pandas.Series
-    :param X_test: Test.
+    :param X_test: Test set.
     :type X_test: pandas.DataFrame
-    :param y_test: Etiquetas de test.
+    :param y_test: Test labels.
     :type y_test: pandas.Series
-    :param kind: Dos letras: ``c/s`` para SMOTE y ``c/s`` para selección.
+    :param kind: Two letters: ``c/s`` for SMOTE and ``c/s`` for selection.
     :type kind: str
-    :param out_dir: Carpeta destino para los Excel generados.
+    :param out_dir: Destination folder for generated Excels.
     :type out_dir: str | pathlib.Path
-    :return: Nada; escribe ficheros ``X_train_{kind}.xlsx``, etc.
+    :return: Nothing; writes files ``X_train_{kind}.xlsx``, etc.
     :rtype: None
     """
     if len(kind) != 2 or any(k not in {"c", "s"} for k in kind):
-        raise ValueError("kind debe ser de longitud 2 con caracteres en {'c','s'}.")
+        raise ValueError("kind must be of length 2 with characters in {'c','s'}.")
 
     do_class_balance = kind[0] == "c"
     do_feature_eng = kind[1] == "c"
@@ -196,11 +196,11 @@ def final_gen(
         X_train, y_train = apply_smote(X_train, y_train)
 
     if do_feature_eng:
-        # Selección estadística (varianza/corr/colinealidad)
+        # Statistical selection (variance/corr/collinearity)
         X_train, X_test = statistical_select(
             X_train, y_train, X_test, v_corr=0.01, v_col=0.95
         )
-        # RFECV con RandomForest
+        # RFECV with RandomForest
         X_train, X_test = rfr_select(X_train, y_train, X_test)
 
     out_path = Path(out_dir)
@@ -219,15 +219,15 @@ def final_gen(
 
 def main(inp: str | Path, out: str | Path, kind: str) -> None:
     """
-    Ejecuta el *pipeline* de *feature building* extremo a extremo.
+    Executes the end-to-end *feature building* pipeline.
 
-    :param inp: Ruta al Excel preprocesado de entrada.
+    :param inp: Path to input preprocessed Excel.
     :type inp: str | pathlib.Path
-    :param out: Carpeta de salida para los ficheros generados.
+    :param out: Output folder for generated files.
     :type out: str | pathlib.Path
-    :param kind: Dos letras: ``c/s`` para SMOTE y ``c/s`` para selección.
+    :param kind: Two letters: ``c/s`` for SMOTE and ``c/s`` for selection.
     :type kind: str
-    :return: Nada.
+    :return: None.
     :rtype: None
     """
     df = pd.read_excel(inp)
@@ -242,34 +242,34 @@ def main(inp: str | Path, out: str | Path, kind: str) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     """
-    Construye el *argument parser* del CLI.
+    Builds the CLI *argument parser*.
 
-    :return: Parser configurado.
+    :return: Configured parser.
     :rtype: argparse.ArgumentParser
     """
     parser = argparse.ArgumentParser(
-        description="Limpia, codifica, escala y selecciona *features* para modelado."
+        description="Cleans, encodes, scales and selects *features* for modeling."
     )
     parser.add_argument(
         "--in",
         dest="inp",
         type=str,
         default="data/preprocessed/telco_preprocessed.xlsx",
-        help="Ruta del Excel preprocesado de entrada.",
+        help="Path to input preprocessed Excel.",
     )
     parser.add_argument(
         "--out",
         dest="out",
         type=str,
         default="data/processed",
-        help="Carpeta de salida para los Excel generados.",
+        help="Output folder for generated Excels.",
     )
     parser.add_argument(
         "--kind",
         dest="kind",
         type=str,
         default="cc",
-        help="Dos letras: 1) c/s (SMOTE on/off), 2) c/s (selección on/off).",
+        help="Two letters: 1) c/s (SMOTE on/off), 2) c/s (selection on/off).",
     )
     return parser
 

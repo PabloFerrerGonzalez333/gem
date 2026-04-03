@@ -1,17 +1,17 @@
 """
-API de predicción (Telco Churn) con FastAPI.
+Prediction API (Telco Churn) using FastAPI.
 
-Expone los endpoints:
+Exposes the endpoints:
 
-- ``GET /health``: estado del servicio y nº de *features* esperadas.
-- ``GET /schema``: columnas de entrada requeridas por el modelo.
-- ``POST /predict``: predicción por lotes (probabilidades y etiquetas).
+- ``GET /health``: Service status and number of expected *features*.
+- ``GET /schema``: Input columns required by the model.
+- ``POST /predict``: Batch prediction (probabilities and labels).
 
-Notas
+Notes
 -----
-- La API carga los artefactos desde ``models/best`` por defecto.
-- El payload de entrada debe incluir un campo ``records`` con una lista de
-  diccionarios (una fila por diccionario).
+- The API loads artifacts from ``models/best`` by default.
+- The input payload must include a ``records`` field with a list of
+  dictionaries (one row per dictionary).
 """
 
 from __future__ import annotations
@@ -50,10 +50,10 @@ app.mount(
 
 class ModelArtifacts(BaseModel):
     """
-    Contenedor de artefactos del modelo.
+    Container for model artifacts.
 
-    :param model: Estimador sklearn/pipeline cargado con ``joblib``.
-    :param feature_cols: Lista ordenada de columnas esperadas.
+    :param model: sklearn/pipeline estimator loaded with ``joblib``.
+    :param feature_cols: Ordered list of expected columns.
     """
 
     model: Any
@@ -63,20 +63,20 @@ class ModelArtifacts(BaseModel):
 @lru_cache(maxsize=1)
 def load_artifacts() -> ModelArtifacts:
     """
-    Carga y cachea los artefactos del modelo desde ``MODEL_DIR``.
+    Loads and caches the model artifacts from ``MODEL_DIR``.
 
-    :return: Artefactos con modelo y columnas de *features*.
+    :return: Artifacts including the model and feature columns.
     :rtype: ModelArtifacts
-    :raises FileNotFoundError: Si falta algún artefacto requerido.
-    :raises Exception: Si falla la deserialización del modelo.
+    :raises FileNotFoundError: If any expected artifact is missing.
+    :raises Exception: If model deserialization fails.
     """
     model_path = MODEL_DIR / "model.joblib"
     feats_path = MODEL_DIR / "feature_columns.json"
 
     if not model_path.exists():
-        raise FileNotFoundError(f"No existe: {model_path}")
+        raise FileNotFoundError(f"Missing: {model_path}")
     if not feats_path.exists():
-        raise FileNotFoundError(f"No existe: {feats_path}")
+        raise FileNotFoundError(f"Missing: {feats_path}")
 
     model = joblib.load(model_path)
     feature_cols: List[str] = json.loads(feats_path.read_text())
@@ -84,21 +84,21 @@ def load_artifacts() -> ModelArtifacts:
     if not isinstance(feature_cols, list) or not all(
         isinstance(c, str) for c in feature_cols
     ):
-        raise ValueError("feature_columns.json debe ser list[str].")
+        raise ValueError("feature_columns.json must be list[str].")
 
     return ModelArtifacts(model=model, feature_cols=feature_cols)
 
 
 # ==========================
-#     Esquemas Pydantic
+#     Pydantic Schemas
 # ==========================
 
 
 class PredictRequest(BaseModel):
     """
-    Petición de predicción por lotes.
+    Batch prediction request.
 
-    :param records: Lista de filas; cada fila es un dict {feature: valor}.
+    :param records: List of rows; each row is a dict {feature: value}.
     """
 
     records: Sequence[Dict[str, Any]] = Field(min_length=1)
@@ -106,10 +106,10 @@ class PredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     """
-    Respuesta de predicción.
+    Prediction response.
 
-    :param predictions: Etiquetas {0,1} umbralizadas a 0.5.
-    :param probabilities: Probabilidades de clase positiva.
+    :param predictions: Labels {0,1} thresholded at 0.5.
+    :param probabilities: Probabilities of the positive class.
     """
 
     predictions: List[int]
@@ -117,20 +117,20 @@ class PredictResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Respuesta del endpoint de salud."""
+    """Health endpoint response."""
 
     status: str
     n_features: int
 
 
 class SchemaResponse(BaseModel):
-    """Respuesta con el esquema de *features* de entrada."""
+    """Response containing the input *feature* schema."""
 
     feature_columns: List[str]
 
 
 # ==========================
-#       Utilidades
+#       Utilities
 # ==========================
 
 
@@ -138,28 +138,28 @@ def _align_payload(
     rows: Sequence[Dict[str, Any]], feature_cols: List[str]
 ) -> pd.DataFrame:
     """
-    Alinea y valida el payload de entrada contra ``feature_cols``.
+    Aligns and validates the input payload against ``feature_cols``.
 
-    - Añade columnas ausentes con 0.
-    - Ordena columnas según el entrenamiento.
-    - Descarta columnas extra (política estricta).
+    - Adds missing columns with 0.
+    - Reorders columns according to training order.
+    - Discards extra columns (strict policy).
 
-    :param rows: Filas crudas del payload.
-    :param feature_cols: Lista esperada de columnas.
-    :return: DataFrame listo para ``predict_proba``.
-    :raises ValueError: Si ``rows`` no es convertible a DataFrame.
+    :param rows: Raw rows from the payload.
+    :param feature_cols: Expected list of columns.
+    :return: DataFrame ready for ``predict_proba``.
+    :raises ValueError: If ``rows`` cannot be converted to a DataFrame.
     """
     try:
         df = pd.DataFrame(rows)
-    except Exception as exc:  # noqa: E722  (se captura para claridad)
-        raise ValueError("Formato de 'records' inválido para DataFrame.") from exc
+    except Exception as exc:  # noqa: E722  (caught for clarity)
+        raise ValueError("Invalid 'records' format for DataFrame.") from exc
 
-    # Completar columnas faltantes
+    # Fill missing columns
     for col in feature_cols:
         if col not in df.columns:
             df[col] = 0
 
-    # Orden estricto y descarte de columnas extra
+    # Strict ordering and discarding of extra columns
     df = df[[c for c in feature_cols]]
     return df
 
@@ -172,9 +172,9 @@ def _align_payload(
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """
-    Devuelve el estado del servicio y el número de *features* requeridas.
+    Returns the service status and the number of required *features*.
 
-    :return: Objeto con ``status`` y ``n_features``.
+    :return: Object containing ``status`` and ``n_features``.
     """
     feats = load_artifacts().feature_cols
     return HealthResponse(status="ok", n_features=len(feats))
@@ -183,9 +183,9 @@ def health() -> HealthResponse:
 @app.get("/schema", response_model=SchemaResponse)
 def schema() -> SchemaResponse:
     """
-    Devuelve el esquema de entrada esperado por el modelo.
+    Returns the input schema expected by the model.
 
-    :return: Lista ordenada de columnas de *features*.
+    :return: Ordered list of *feature* columns.
     """
     feats = load_artifacts().feature_cols
     return SchemaResponse(feature_columns=feats)
@@ -194,17 +194,17 @@ def schema() -> SchemaResponse:
 @app.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest) -> PredictResponse:
     """
-    Predice etiquetas y probabilidades para las filas de ``payload.records``.
+    Predicts labels and probabilities for the rows in ``payload.records``.
 
-    :param payload: Petición con lista de registros.
-    :return: Probabilidades (clase positiva) y predicciones umbralizadas.
-    :raises HTTPException: Si ocurre un error de predicción.
+    :param payload: Request with a list of records.
+    :return: Probabilities (positive class) and thresholded predictions.
+    :raises HTTPException: If a prediction error occurs.
     """
     try:
         artifacts = load_artifacts()
         X = _align_payload(payload.records, artifacts.feature_cols)
 
-        # Índice de la clase positiva; por convenio usamos la columna 1
+        # Index of the positive class; conventionally we use column 1
         proba = artifacts.model.predict_proba(X)[:, 1]
         preds = (proba >= 0.5).astype(int)
 
@@ -217,9 +217,9 @@ def predict(payload: PredictRequest) -> PredictResponse:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500,
-            detail=f"Error en predicción: {exc}",
+            detail=f"Prediction error: {exc}",
         ) from exc
 
 
-# Ejecuta con:
+# Run with:
 # poetry run uvicorn src.serving.app:app --host 127.0.0.1 --port 8000

@@ -1,19 +1,19 @@
 """
-Utilidades de selección de características para clasificación binaria.
+Feature selection utilities for binary classification.
 
-Incluye tres estrategias principales:
+Includes three main strategies:
 
-1. :func:`sel_varianza`: Filtra columnas con baja varianza.
-2. :func:`sel_correlacion`: Selecciona por correlación con la variable objetivo.
-3. :func:`sel_colinealidad`: Detecta pares muy correlacionados y sugiere cuál
-   eliminar según su relación con el objetivo.
-4. :func:`statistical_select`: Orquesta los tres pasos anteriores.
-5. :func:`rfr_select`: Selección vía RFECV con ``RandomForestClassifier``.
+1. :func:`sel_varianza`: Filters columns with low variance.
+2. :func:`sel_correlacion`: Selects by correlation with the target variable.
+3. :func:`sel_colinealidad`: Detects highly correlated pairs and suggests which
+   one to eliminate based on its relationship with the target.
+4. :func:`statistical_select`: Orchestrates the three previous steps.
+5. :func:`rfr_select`: Selection via RFECV with ``RandomForestClassifier``.
 
-Notas
+Notes
 -----
-- Se asume que ``X`` y ``y`` son numéricos (sin categorías sin codificar).
-- Para ``rfr_select`` se espera que las matrices ya estén escaladas/encoded.
+- It is assumed that ``X`` and ``y`` are numerical (no unencoded categories).
+- For ``rfr_select`` it is expected that the matrices are already scaled/encoded.
 """
 
 from __future__ import annotations
@@ -32,23 +32,23 @@ np.random.seed(SEED)
 
 def sel_varianza(X_train: pd.DataFrame) -> List[str]:
     """
-    Elimina (lógicamente) características con baja varianza en ``X_train``.
+    Logically removes features with low variance in ``X_train``.
 
-    Aplica un umbral de varianza de ``0.001`` y devuelve los nombres de las
-    columnas que **no** superan el umbral (es decir, candidatas a eliminar).
-    No modifica ``X_train`` in-place.
+    Applies a variance threshold of ``0.001`` and returns the names of the
+    columns that do **not** exceed the threshold (i.e., candidates for removal).
+    Does not modify ``X_train`` in-place.
 
-    :param X_train: Matriz de entrenamiento (numérica).
+    :param X_train: Training matrix (numerical).
     :type X_train: pandas.DataFrame
-    :return: Lista de columnas con varianza < 0.001.
+    :return: List of columns with variance < 0.001.
     :rtype: list[str]
 
-    **Ejemplo**
+    **Example**
 
     .. code-block:: python
 
-       bajas = sel_varianza(X_train)
-       X_filtrado = X_train.drop(columns=bajas)
+       low_var = sel_varianza(X_train)
+       X_filtered = X_train.drop(columns=low_var)
     """
     selector = VarianceThreshold(threshold=0.001)
     selector.fit(X_train)
@@ -56,10 +56,10 @@ def sel_varianza(X_train: pd.DataFrame) -> List[str]:
     low_variance_columns = X_train.columns[~selector.get_support()]
 
     if len(low_variance_columns) > 0:
-        print("Columnas con baja varianza (se eliminarán):")
+        print("Columns with low variance (to be removed):")
         print(low_variance_columns.tolist())
     else:
-        print("No hay columnas con baja varianza.")
+        print("No columns with low variance found.")
 
     return low_variance_columns.tolist()
 
@@ -70,27 +70,27 @@ def sel_correlacion(
     thres: float,
 ) -> Tuple[pd.DataFrame, List[str]]:
     """
-    Selecciona características por correlación absoluta con ``y``.
+    Selects features by absolute correlation with ``y``.
 
-    Calcula la correlación de Pearson de cada columna de ``X_sel`` con la
-    variable objetivo, construye un DataFrame ordenado por ``|corr|`` y
-    devuelve la lista de columnas con ``|corr| > thres``.
+    Calculates the Pearson correlation of each column in ``X_sel`` with the
+    target variable, builds a DataFrame sorted by ``|corr|`` and
+    returns the list of columns with ``|corr| > thres``.
 
-    :param X_sel: Matriz de atributos (numérica).
+    :param X_sel: Feature matrix (numerical).
     :type X_sel: pandas.DataFrame
-    :param y_sel: Vector objetivo (1D).
+    :param y_sel: Target vector (1D).
     :type y_sel: pandas.Series | numpy.ndarray
-    :param thres: Umbral de selección por ``|corr|`` (p. ej., ``0.02``).
+    :param thres: Selection threshold for ``|corr|`` (e.g., ``0.02``).
     :type thres: float
     :return:
-        - **corrs** (*pandas.DataFrame*): Tabla con columna ``vals`` (``|corr|``)
-          ordenada descendentemente e indexada por nombre de feature.
-        - **selected_features** (*list[str]*): Columnas con ``|corr| > thres``.
+        - **corrs** (*pandas.DataFrame*): Table with column ``vals`` (``|corr|``)
+          sorted descending and indexed by feature name.
+        - **selected_features** (*list[str]*): Columns with ``|corr| > thres``.
     :rtype: tuple[pandas.DataFrame, list[str]]
 
-    **Notas**
+    **Notes**
     -------
-    Requiere columnas numéricas; si hay NaN, la correlación puede ser ``NaN``.
+    Requires numerical columns; if there are NaNs, the correlation may be ``NaN``.
     """
     if isinstance(y_sel, pd.DataFrame):
         y_vec = y_sel.iloc[:, 0]
@@ -112,25 +112,25 @@ def sel_colinealidad(
     v_corr: float,
 ) -> List[str]:
     """
-    Detecta pares de características con alta colinealidad y sugiere cuál
-    eliminar según su correlación con ``y``.
+    Detects feature pairs with high collinearity and suggests which to
+    eliminate based on its correlation with ``y``.
 
-    Pasos:
-      1. Calcula la matriz de correlación absoluta de ``X_train``.
-      2. Busca pares con correlación > ``thres`` (solo triángulo superior).
-      3. Para cada par, compara ``|corr(feature, y)|`` y sugiere eliminar la
-         de menor valor absoluto.
+    Steps:
+      1. Computes the absolute correlation matrix of ``X_train``.
+      2. Finds pairs with correlation > ``thres`` (upper triangle only).
+      3. For each pair, compares ``|corr(feature, y)|`` and suggests removing the
+         one with the lower absolute value.
 
-    :param X_train: Matriz de entrenamiento (numérica).
+    :param X_train: Training matrix (numerical).
     :type X_train: pandas.DataFrame
-    :param thres: Umbral de colinealidad entre *features* (p. ej., ``0.9``).
+    :param thres: Collinearity threshold between *features* (e.g., ``0.9``).
     :type thres: float
-    :param y_train: Vector objetivo (1D).
+    :param y_train: Target vector (1D).
     :type y_train: pandas.Series | numpy.ndarray
-    :param v_corr: Umbral para calcular/filtrar correlaciones con ``y`` al
-                   priorizar qué columna descartar (se usa internamente).
+    :param v_corr: Threshold to compute/filter correlations with ``y`` when
+                   prioritizing which column to drop (used internally).
     :type v_corr: float
-    :return: Lista de columnas sugeridas para eliminar por colinealidad.
+    :return: List of suggested columns to remove due to collinearity.
     :rtype: list[str]
     """
     corr_matrix = X_train.corr().abs()
@@ -156,14 +156,14 @@ def sel_colinealidad(
         features_to_drop.add(feature_to_drop)
 
         print(
-            "Pares altamente correlacionados: "
-            f"{feature1} y {feature2} (corr: {corr_matrix.loc[feature1, feature2]:.2f})"
+            "Highly correlated pairs: "
+            f"{feature1} and {feature2} (corr: {corr_matrix.loc[feature1, feature2]:.2f})"
         )
         print(
-            f"Correlación con objetivo - {feature1}: {corr1:.2f}, "
+            f"Correlation with target - {feature1}: {corr1:.2f}, "
             f"{feature2}: {corr2:.2f}"
         )
-        print(f"Sugerencia de eliminar: {feature_to_drop}\n")
+        print(f"Suggestion to drop: {feature_to_drop}\n")
 
     return list(features_to_drop)
 
@@ -176,26 +176,26 @@ def statistical_select(
     v_col: float,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Selección estadística por varianza, correlación y colinealidad.
+    Statistical selection by variance, correlation, and collinearity.
 
     Pipeline:
-      1. Filtra columnas con baja varianza (``sel_varianza``).
-      2. Selecciona columnas con ``|corr| > v_corr`` respecto a ``y``.
-      3. De las anteriores, elimina las con pares muy correlacionados
-         (``> v_col``), conservando la más relacionada con ``y``.
-      4. Aplica el mismo subconjunto a ``X_test_transformed``.
+      1. Filters out low variance columns (``sel_varianza``).
+      2. Selects columns with ``|corr| > v_corr`` regarding ``y``.
+      3. From the prior ones, drops those with highly correlated pairs
+         (``> v_col``), keeping the one most correlated with ``y``.
+      4. Applies the same subset to ``X_test_transformed``.
 
-    :param X_train_transformed: Entrenamiento (numérico, ya transformado).
+    :param X_train_transformed: Training set (numerical, already transformed).
     :type X_train_transformed: pandas.DataFrame
-    :param y_train: Vector objetivo (1D).
+    :param y_train: Target vector (1D).
     :type y_train: pandas.Series | numpy.ndarray
-    :param X_test_transformed: Test con mismas columnas que ``X_train_transformed``.
+    :param X_test_transformed: Test set with same columns as ``X_train_transformed``.
     :type X_test_transformed: pandas.DataFrame
-    :param v_corr: Umbral de ``|corr|`` con ``y`` (p. ej., ``0.02``).
+    :param v_corr: Threshold of ``|corr|`` with ``y`` (e.g., ``0.02``).
     :type v_corr: float
-    :param v_col: Umbral de colinealidad entre *features* (p. ej., ``0.9``).
+    :param v_col: Collinearity threshold between *features* (e.g., ``0.9``).
     :type v_col: float
-    :return: ``(X_train_selected, X_test_selected)`` con columnas filtradas.
+    :return: ``(X_train_selected, X_test_selected)`` with filtered columns.
     :rtype: tuple[pandas.DataFrame, pandas.DataFrame]
     """
     cols_low_var = sel_varianza(X_train_transformed)
@@ -210,8 +210,8 @@ def statistical_select(
     X_test_selected = X_test_transformed[cols]
 
     print(
-        "Statistical - Número de características seleccionadas: "
-        f"{X_train_selected.shape[1]}, inicialmente {X_train_transformed.shape[1]}"
+        "Statistical - Number of selected features: "
+        f"{X_train_selected.shape[1]}, initially {X_train_transformed.shape[1]}"
     )
 
     return X_train_selected, X_test_selected
@@ -223,25 +223,25 @@ def rfr_select(
     X_test_scaled: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Selección de características con RFECV + RandomForestClassifier.
+    Feature selection using RFECV + RandomForestClassifier.
 
-    Usa Eliminación Recursiva de Características con Validación Cruzada
-    (RFECV) y un ``RandomForestClassifier`` para quedarse con las columnas
-    más relevantes según la métrica ``roc_auc``.
+    Uses Recursive Feature Elimination with Cross-Validation
+    (RFECV) and a ``RandomForestClassifier`` to keep the most relevant
+    columns according to the ``roc_auc`` metric.
 
-    :param X_train_scaled: Entrenamiento ya escalado/encodeado.
+    :param X_train_scaled: Training set already scaled/encoded.
     :type X_train_scaled: pandas.DataFrame
-    :param y_train: Vector objetivo (1D). Se convierte internamente a 1D.
+    :param y_train: Target vector (1D). Converted internally to 1D.
     :type y_train: pandas.Series | numpy.ndarray
-    :param X_test_scaled: Conjunto de test con mismas columnas que ``X_train_scaled``.
+    :param X_test_scaled: Test set with same columns as ``X_train_scaled``.
     :type X_test_scaled: pandas.DataFrame
-    :return: ``(X_train_selected, X_test_selected)`` con columnas seleccionadas.
+    :return: ``(X_train_selected, X_test_selected)`` with selected columns.
     :rtype: tuple[pandas.DataFrame, pandas.DataFrame]
 
-    **Notas**
+    **Notes**
     ------
-    - ``scoring='roc_auc'`` asume un problema binario con etiquetas {0, 1}.
-    - Ajusta ``n_estimators``/``cv`` según tamaño de muestra y coste.
+    - ``scoring='roc_auc'`` assumes a binary problem with {0, 1} labels.
+    - Adjust ``n_estimators``/``cv`` according to sample size and cost.
     """
     rf_estimator = RandomForestClassifier(
         random_state=RANDOM_STATE,
@@ -267,8 +267,8 @@ def rfr_select(
     X_test_selected = pd.DataFrame(X_test_scaled.iloc[:, idx], columns=names)
 
     print(
-        "Forest - Número de características seleccionadas: "
-        f"{X_train_selected.shape[1]}, originalmente {X_train_scaled.shape[1]}"
+        "Forest - Number of selected features: "
+        f"{X_train_selected.shape[1]}, originally {X_train_scaled.shape[1]}"
     )
 
     return X_train_selected, X_test_selected
