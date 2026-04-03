@@ -1,14 +1,26 @@
-# PFG-TestDataScience-1 [![ci](https://github.com/PabloFerrerGonzalez333/PFG-TestDataScience-1/actions/workflows/ci.yml/badge.svg)](https://github.com/PabloFerrerGonzalez333/PFG-TestDataScience-1/actions/workflows/ci.yml)
+# Cap: End-to-End Telco Churn Prediction Pipeline [![ci](https://github.com/PabloFerrerGonzalez333/cap/actions/workflows/ci.yml/badge.svg)](https://github.com/PabloFerrerGonzalez333/cap/actions/workflows/ci.yml)
 
 Pipeline de **ciencia de datos end-to-end** para el dataset de Telco (descarga → preparación de features → entrenamiento → evaluación → inferencia → documentación → API).
 
 > **Tecnologías:** Python · Poetry · Uvicorn/FastAPI (serving) · Sphinx (docs)
 
+## 🏗 Arquitectura
+
+```mermaid
+graph LR
+    A[Raw Data] -->|make_dataset.py| B(Clean Data)
+    B -->|build_features.py| C(Processed Features)
+    C -->|train.py| D[XGBoost / LightGBM / CatBoost]
+    D --> E((MLflow Tracking))
+    D --> F[FastAPI Serving]
+    F -->|predict API| G(Client)
+```
+
 ---
 
 ## 📦 Requisitos
 
-- **Python 3.11** (recomendado)
+- **Python 3.12** (recomendado)
 - **Poetry** para la gestión del entorno y dependencias
 
 ---

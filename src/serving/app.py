@@ -34,10 +34,11 @@ from pydantic import BaseModel, Field, ValidationError
 MODEL_DIR = Path("models/best")
 
 app = FastAPI(title="Telco Churn API", version="1.0.0")
-SPHINX_HTML_DIR = "docs/build/html"
+SPHINX_HTML_DIR = Path("docs/build/html")
+SPHINX_HTML_DIR.mkdir(parents=True, exist_ok=True)
 app.mount(
     "/documentation",
-    StaticFiles(directory=SPHINX_HTML_DIR, html=True),
+    StaticFiles(directory=str(SPHINX_HTML_DIR), html=True),
     name="sphinx-docs",
 )
 
